@@ -2,6 +2,7 @@ import numpy as np
 import cv2 as cv
 import glob
 import os
+import json
 
 def load_images_from_folder(folder):
     images = []
@@ -209,58 +210,26 @@ print("RMS error:", ret_stereo)
 print("Rotation matrix R:\n", R)
 print("Translation vector T:\n", T)
 
-
-import numpy as np
-import cv2 as cv
-import matplotlib.pyplot as plt
-
-# Choisir la paire d'images pour la depth map (ex: première paire valide)
-img_l = cv.imread("../img_calib_blender/test_l.png", cv.IMREAD_GRAYSCALE)
-img_r = cv.imread("../img_calib_blender/test_r.png", cv.IMREAD_GRAYSCALE)
-
-h, w = img_l.shape
-
-# -------------------------
-# Rectification stéréo
-# -------------------------
-R1, R2, P1, P2, Q, roi1, roi2 = cv.stereoRectify(
-    K_l_new, D_l_new,
-    K_r_new, D_r_new,
-    (w, h),  # width, height
-    R, T,
-    flags=cv.CALIB_ZERO_DISPARITY,
-    alpha=0
-)
-
-map1x, map1y = cv.initUndistortRectifyMap(K_l_new, D_l_new, R1, P1, (w,h), cv.CV_32FC1)
-map2x, map2y = cv.initUndistortRectifyMap(K_r_new, D_r_new, R2, P2, (w,h), cv.CV_32FC1)
-
-rectified_l = cv.remap(img_l, map1x, map1y, cv.INTER_LINEAR)
-rectified_r = cv.remap(img_r, map2x, map2y, cv.INTER_LINEAR)
+calib_data = {
+    "K_l_new": K_l_new.tolist(),
+    "D_l_new": D_l_new.tolist(),
+    "K_r_new": K_r_new.tolist(),
+    "D_r_new": D_r_new.tolist(),
+    "R": R.tolist(),
+    "T": T.flatten().tolist(),
+    "E": E.tolist(),
+    "F": F.tolist()
+}
 
 # -------------------------
-# Calcul de la disparity
+# Chemin du fichier de sortie
 # -------------------------
-num_disparities = 64  # multiple de 16
-block_size = 15       # taille du patch
-stereo = cv.StereoBM_create(numDisparities=num_disparities, blockSize=block_size)
-disparity = stereo.compute(rectified_l, rectified_r).astype(np.float32) / 16.0
+output_json = "calibration_params.json"
 
 # -------------------------
-# Reprojection en 3D
+# Sauvegarde JSON
 # -------------------------
-points_3d = cv.reprojectImageTo3D(disparity, Q)
-mask = disparity > disparity.min()
-depth_map = np.where(mask, points_3d[:,:,2], 0)  # Z = profondeur
+with open(output_json, "w") as f:
+    json.dump(calib_data, f, indent=4)
 
-max_depth = 2000
-min_depth = 0
-valid_mask = (depth_map > min_depth) & (depth_map < max_depth)
-depth_clean = np.where(valid_mask, depth_map, 0)
-
-# Affichage
-plt.figure(figsize=(10,6))
-plt.imshow(depth_clean, cmap='plasma')
-plt.colorbar(label="Profondeur (unités objpoints)")
-plt.title("Depth map nettoyée")
-plt.show()
+print(f"Calibration stéréo sauvegardée dans {output_json}")
