@@ -1,0 +1,12 @@
+# config.py
+
+MODEL_PATH = "pose_landmarker_full.task"
+
+NUM_POSES = 2
+CONFIDENCE_THRESHOLD = 0.5
+
+CAMERA_ID = 0
+FRAME_WIDTH = 1280
+FRAME_HEIGHT = 720
+
+MAX_PERSONS = 2
